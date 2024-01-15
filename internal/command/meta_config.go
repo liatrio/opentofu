@@ -184,9 +184,6 @@ func (m *Meta) loadHCLFile(filename string) (hcl.Body, tfdiags.Diagnostics) {
 // this package has a reasonable implementation for displaying notifications
 // via a provided cli.Ui.
 func (m *Meta) installModules(ctx context.Context, rootDir, testsDir string, upgrade, installErrsOnly bool, hooks initwd.ModuleInstallHooks) (abort bool, diags tfdiags.Diagnostics) {
-	ctx, span := tracer.Start(ctx, "install modules")
-	defer span.End()
-
 	rootDir = m.normalizePath(rootDir)
 
 	err := os.MkdirAll(m.modulesDir(), os.ModePerm)

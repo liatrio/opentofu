@@ -1,0 +1,50 @@
+package git
+
+import (
+	"net/url"
+
+	"github.com/hashicorp/go-getter"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
+)
+
+type GitGetter struct {
+	gogetter getter.GitGetter
+}
+
+// Get downloads the given URL into the given directory. This always
+// assumes that we're updating and gets the latest version that it can.
+//
+// The directory may already exist (if we're updating). If it is in a
+// format that isn't understood, an error should be returned. Get shouldn't
+// simply nuke the directory.
+func (g *GitGetter) Get(dst string, u *url.URL) error {
+	_, repoSpec, _ := FromResourceURL(u.String())
+
+	span := trace.SpanFromContext(g.gogetter.Context())
+	span.SetAttributes(attribute.String("commit_hash", repoSpec.Sha))
+	if repoSpec.Tag {
+		span.SetAttributes(attribute.String("module_tag", repoSpec.Ref))
+	}
+	return g.gogetter.Get(dst, u)
+}
+
+// GetFile downloads the give URL into the given path. The URL must
+// reference a single file. If possible, the Getter should check if
+// the remote end contains the same file and no-op this operation.
+func (g *GitGetter) GetFile(dst string, u *url.URL) error {
+	return g.gogetter.GetFile(dst, u)
+}
+
+// ClientMode returns the mode based on the given URL. This is used to
+// allow clients to let the getters decide which mode to use.
+func (g *GitGetter) ClientMode(u *url.URL) (getter.ClientMode, error) {
+	return g.gogetter.ClientMode(u)
+}
+
+// SetClient allows a getter to know it's client
+// in order to access client's Get functions or
+// progress tracking.
+func (g *GitGetter) SetClient(c *getter.Client) {
+	g.gogetter.SetClient(c)
+}

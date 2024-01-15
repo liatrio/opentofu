@@ -173,6 +173,9 @@ func (i *ModuleInstaller) moduleInstallWalker(ctx context.Context, manifest mods
 			key := manifest.ModuleKey(req.Path)
 			instPath := i.packageInstallPath(req.Path)
 
+			ctx, span := tracer.Start(ctx, fmt.Sprintf("install module: %s", key))
+			defer span.End()
+
 			log.Printf("[DEBUG] Module installer: begin %s", key)
 
 			// First we'll check if we need to upgrade/replace an existing

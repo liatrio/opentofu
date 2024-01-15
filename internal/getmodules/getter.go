@@ -12,6 +12,7 @@ import (
 	cleanhttp "github.com/hashicorp/go-cleanhttp"
 	getter "github.com/hashicorp/go-getter"
 	"github.com/opentofu/opentofu/internal/copy"
+	"github.com/opentofu/opentofu/internal/getmodules/git"
 )
 
 // We configure our own go-getter detector and getter sets here, because
@@ -76,7 +77,7 @@ var goGetterDecompressors = map[string]getter.Decompressor{
 var goGetterGetters = map[string]getter.Getter{
 	"file":  new(getter.FileGetter),
 	"gcs":   new(getter.GCSGetter),
-	"git":   new(getter.GitGetter),
+	"git":   new(git.GitGetter),
 	"hg":    new(getter.HgGetter),
 	"s3":    new(getter.S3Getter),
 	"http":  getterHTTPGetter,

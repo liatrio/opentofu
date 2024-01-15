@@ -28,6 +28,7 @@ import (
 	"github.com/opentofu/opentofu/internal/logging"
 	"github.com/opentofu/opentofu/internal/terminal"
 	"github.com/opentofu/opentofu/version"
+	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/trace"
 
 	backendInit "github.com/opentofu/opentofu/internal/backend/init"
@@ -80,9 +81,10 @@ func realMain() int {
 	}
 	var ctx context.Context
 	var otelSpan trace.Span
+	var displayArgs string
 	{
 		// At minimum we emit a span covering the entire command execution.
-		_, displayArgs := shquot.POSIXShellSplit(os.Args)
+		_, displayArgs = shquot.POSIXShellSplit(os.Args)
 		ctx, otelSpan = tracer.Start(context.Background(), fmt.Sprintf("tofu %s", displayArgs))
 		defer otelSpan.End()
 	}
@@ -350,11 +352,12 @@ func realMain() int {
 	// if we are exiting with a non-zero code, check if it was caused by any
 	// plugins crashing
 	if exitCode != 0 {
+		otelSpan.SetStatus(codes.Error, fmt.Sprintf("tofu %s failed", displayArgs))
 		for _, panicLog := range logging.PluginPanics() {
 			Ui.Error(panicLog)
 		}
 	}
-
+	otelSpan.SetStatus(codes.Ok, "")
 	return exitCode
 }
 

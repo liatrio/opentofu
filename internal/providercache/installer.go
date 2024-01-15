@@ -11,6 +11,8 @@ import (
 	"strings"
 
 	"github.com/apparentlymart/go-versions/versions"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 
 	"github.com/opentofu/opentofu/internal/addrs"
 	copydir "github.com/opentofu/opentofu/internal/copy"
@@ -348,6 +350,10 @@ NeedProvider:
 			return nil, err
 		}
 
+		ctx, span := tracer.Start(ctx, fmt.Sprintf("install provider: %s", provider), trace.WithAttributes(
+			attribute.String("ProviderVersion", version.String()),
+		))
+
 		lock := locks.Provider(provider)
 		var preferredHashes []getproviders.Hash
 		if lock != nil && lock.Version() == version { // hash changes are expected if the version is also changing
@@ -361,6 +367,7 @@ NeedProvider:
 					if cb := evts.ProviderAlreadyInstalled; cb != nil {
 						cb(provider, version)
 					}
+					span.End()
 					continue
 				}
 			}
@@ -449,6 +456,7 @@ NeedProvider:
 						if cb := evts.LinkFromCacheFailure; cb != nil {
 							cb(provider, version, err)
 						}
+						span.End()
 						continue
 					}
 
@@ -458,6 +466,7 @@ NeedProvider:
 						if cb := evts.LinkFromCacheFailure; cb != nil {
 							cb(provider, version, err)
 						}
+						span.End()
 						continue
 					}
 					// We'll fetch what we just linked to make sure it actually
@@ -469,6 +478,7 @@ NeedProvider:
 						if cb := evts.LinkFromCacheFailure; cb != nil {
 							cb(provider, version, err)
 						}
+						span.End()
 						continue
 					}
 
@@ -511,6 +521,7 @@ NeedProvider:
 						if cb := evts.LinkFromCacheFailure; cb != nil {
 							cb(provider, version, err)
 						}
+						span.End()
 						continue
 					}
 					// The hashes slice gets deduplicated in the lock file
@@ -531,6 +542,7 @@ NeedProvider:
 					if cb := evts.LinkFromCacheSuccess; cb != nil {
 						cb(provider, version, new.PackageDir)
 					}
+					span.End()
 					continue // Don't need to do full install, then.
 				}
 			}
@@ -550,6 +562,7 @@ NeedProvider:
 			if cb := evts.FetchPackageFailure; cb != nil {
 				cb(provider, version, err)
 			}
+			span.End()
 			continue
 		}
 
@@ -581,6 +594,7 @@ NeedProvider:
 			if cb := evts.FetchPackageFailure; cb != nil {
 				cb(provider, version, err)
 			}
+			span.End()
 			continue
 		}
 		new := installTo.ProviderVersion(provider, version)
@@ -590,6 +604,7 @@ NeedProvider:
 			if cb := evts.FetchPackageFailure; cb != nil {
 				cb(provider, version, err)
 			}
+			span.End()
 			continue
 		}
 		if _, err := new.ExecutableFile(); err != nil {
@@ -598,6 +613,7 @@ NeedProvider:
 			if cb := evts.FetchPackageFailure; cb != nil {
 				cb(provider, version, err)
 			}
+			span.End()
 			continue
 		}
 		if linkTo != nil {
@@ -613,6 +629,7 @@ NeedProvider:
 				if cb := evts.FetchPackageFailure; cb != nil {
 					cb(provider, version, err)
 				}
+				span.End()
 				continue
 			}
 
@@ -627,6 +644,7 @@ NeedProvider:
 				if cb := evts.FetchPackageFailure; cb != nil {
 					cb(provider, version, err)
 				}
+				span.End()
 				continue
 			}
 			if _, err := new.ExecutableFile(); err != nil {
@@ -635,6 +653,7 @@ NeedProvider:
 				if cb := evts.FetchPackageFailure; cb != nil {
 					cb(provider, version, err)
 				}
+				span.End()
 				continue
 			}
 		}
@@ -671,6 +690,7 @@ NeedProvider:
 			if cb := evts.FetchPackageFailure; cb != nil {
 				cb(provider, version, err)
 			}
+			span.End()
 			continue
 		}
 
@@ -707,6 +727,7 @@ NeedProvider:
 		if cb := evts.FetchPackageSuccess; cb != nil {
 			cb(provider, version, new.PackageDir, authResult)
 		}
+		span.End()
 	}
 
 	// Emit final event for fetching if any were successfully fetched

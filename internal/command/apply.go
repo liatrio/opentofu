@@ -121,7 +121,7 @@ func (c *ApplyCommand) Run(rawArgs []string) int {
 	diags = nil
 
 	// Run the operation
-	op, err := c.RunOperation(be, opReq)
+	op, err := c.RunOperation(c.Meta.CallerContext, be, opReq)
 	if err != nil {
 		diags = diags.Append(err)
 		view.Diagnostics(diags)

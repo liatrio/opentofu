@@ -20,6 +20,7 @@ import (
 	"github.com/opentofu/opentofu/internal/states/statemgr"
 	"github.com/opentofu/opentofu/internal/tfdiags"
 	"github.com/opentofu/opentofu/internal/tofu"
+	"go.opentelemetry.io/otel/trace"
 )
 
 // test hook called between plan+apply during opApply
@@ -245,6 +246,7 @@ func (b *Local) opApply(
 
 	// Even on error with an empty state, the state value should not be nil.
 	// Return early here to prevent corrupting any existing state.
+	span := trace.SpanFromContext(stopCtx)
 	if diags.HasErrors() && applyState == nil {
 		log.Printf("[ERROR] backend/local: apply returned nil state")
 		op.ReportResult(runningOp, diags)
@@ -267,6 +269,9 @@ func (b *Local) opApply(
 		op.ReportResult(runningOp, diags)
 		return
 	}
+
+	span.RecordError(diags.Err())
+	// fmt.Println(diags[0].Description().Address)
 
 	if applyDiags.HasErrors() {
 		op.ReportResult(runningOp, diags)

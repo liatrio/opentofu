@@ -356,8 +356,9 @@ func realMain() int {
 		for _, panicLog := range logging.PluginPanics() {
 			Ui.Error(panicLog)
 		}
+	} else {
+		otelSpan.SetStatus(codes.Ok, "")
 	}
-	otelSpan.SetStatus(codes.Ok, "")
 	return exitCode
 }
 

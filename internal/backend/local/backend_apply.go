@@ -10,6 +10,7 @@ import (
 	"log"
 	"time"
 
+	"github.com/hashicorp/hcl/v2"
 	"github.com/opentofu/opentofu/internal/addrs"
 	"github.com/opentofu/opentofu/internal/backend"
 	"github.com/opentofu/opentofu/internal/command/views"
@@ -20,6 +21,7 @@ import (
 	"github.com/opentofu/opentofu/internal/states/statemgr"
 	"github.com/opentofu/opentofu/internal/tfdiags"
 	"github.com/opentofu/opentofu/internal/tofu"
+	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 )
 
@@ -48,6 +50,7 @@ func (b *Local) opApply(
 		op.ReportResult(runningOp, diags)
 		return
 	}
+	span := trace.SpanFromContext(stopCtx)
 
 	stateHook := new(StateHook)
 	op.Hooks = append(op.Hooks, stateHook)
@@ -225,6 +228,11 @@ func (b *Local) opApply(
 		}
 	}
 
+	for _, change := range plan.Changes.Resources {
+		span.SetAttributes(attribute.String(fmt.Sprintf("%s.change", change.Addr.String()), change.Action.String()))
+		span.SetAttributes(attribute.String(fmt.Sprintf("%s.provider", change.Addr.String()), change.ProviderAddr.Provider.String()))
+		span.SetAttributes(attribute.String(fmt.Sprintf("%s.module", change.Addr.String()), change.Addr.Module.String()))
+	}
 	// Set up our hook for continuous state updates
 	stateHook.StateMgr = opState
 
@@ -246,7 +254,6 @@ func (b *Local) opApply(
 
 	// Even on error with an empty state, the state value should not be nil.
 	// Return early here to prevent corrupting any existing state.
-	span := trace.SpanFromContext(stopCtx)
 	if diags.HasErrors() && applyState == nil {
 		log.Printf("[ERROR] backend/local: apply returned nil state")
 		op.ReportResult(runningOp, diags)
@@ -270,8 +277,13 @@ func (b *Local) opApply(
 		return
 	}
 
-	span.RecordError(diags.Err())
-	// fmt.Println(diags[0].Description().Address)
+	var errAttributes []attribute.KeyValue
+	for _, diag := range diags {
+		if diag.Severity().ToHCL() == hcl.DiagError {
+			errAttributes = append(errAttributes, attribute.String(fmt.Sprintf("%s.error", diag.Description().Address), diag.Description().Summary))
+		}
+	}
+	span.RecordError(diags.Err(), trace.WithAttributes(errAttributes...))
 
 	if applyDiags.HasErrors() {
 		op.ReportResult(runningOp, diags)

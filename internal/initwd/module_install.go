@@ -17,6 +17,7 @@ import (
 	version "github.com/hashicorp/go-version"
 	"github.com/hashicorp/hcl/v2"
 	"github.com/hashicorp/hcl/v2/hclsyntax"
+	"go.opentelemetry.io/otel/attribute"
 
 	"github.com/opentofu/opentofu/internal/addrs"
 	"github.com/opentofu/opentofu/internal/configs"
@@ -174,6 +175,7 @@ func (i *ModuleInstaller) moduleInstallWalker(ctx context.Context, manifest mods
 			instPath := i.packageInstallPath(req.Path)
 
 			ctx, span := tracer.Start(ctx, fmt.Sprintf("install module: %s", key))
+			span.SetAttributes(attribute.String("module_name", key))
 			defer span.End()
 
 			log.Printf("[DEBUG] Module installer: begin %s", key)

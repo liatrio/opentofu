@@ -1,6 +1,7 @@
 package git
 
 import (
+	"fmt"
 	"net/url"
 
 	"github.com/hashicorp/go-getter"
@@ -22,10 +23,10 @@ func (g *GitGetter) Get(dst string, u *url.URL) error {
 	_, repoSpec, _ := FromResourceURL(u.String())
 
 	span := trace.SpanFromContext(g.gogetter.Context())
-	span.SetAttributes(attribute.String("commit_hash", repoSpec.Sha))
-	if repoSpec.Tag {
-		span.SetAttributes(attribute.String("module_tag", repoSpec.Ref))
-	}
+	span.SetAttributes(attribute.String("module_commit", repoSpec.Sha))
+	span.SetAttributes(attribute.String("module_source", fmt.Sprintf("%s/%s", repoSpec.Namespace, repoSpec.Repo)))
+	span.SetAttributes(attribute.String("module_ref", repoSpec.Ref))
+	span.SetAttributes(attribute.Bool("module_is_tag_ref", repoSpec.Tag))
 	return g.gogetter.Get(dst, u)
 }
 

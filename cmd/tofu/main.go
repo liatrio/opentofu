@@ -15,6 +15,7 @@ import (
 	"strings"
 
 	"github.com/apparentlymart/go-shquot/shquot"
+	"github.com/equinix-labs/otel-cli/w3c/traceparent"
 	"github.com/hashicorp/go-plugin"
 	"github.com/hashicorp/terraform-svchost/disco"
 	"github.com/mattn/go-shellwords"
@@ -85,7 +86,22 @@ func realMain() int {
 	{
 		// At minimum we emit a span covering the entire command execution.
 		_, displayArgs = shquot.POSIXShellSplit(os.Args)
-		ctx, otelSpan = tracer.Start(context.Background(), fmt.Sprintf("tofu %s", displayArgs))
+		if os.Getenv("TRACEPARENT") != "" {
+			tp, _ := traceparent.LoadFromEnv()
+			var flags trace.TraceFlags = 0
+			if tp.Sampling {
+				flags = 1
+			}
+			sc := trace.SpanContext{}.
+				WithTraceID(trace.TraceID(tp.TraceId)).
+				WithSpanID(trace.SpanID(tp.SpanId)).
+				WithTraceFlags(flags).
+				WithRemote(true)
+			ctx, otelSpan = tracer.Start(trace.ContextWithRemoteSpanContext(context.Background(), sc), fmt.Sprintf("tofu %s", displayArgs))
+
+		} else {
+			ctx, otelSpan = tracer.Start(context.Background(), fmt.Sprintf("tofu %s", displayArgs))
+		}
 		defer otelSpan.End()
 	}
 

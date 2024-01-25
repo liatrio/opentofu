@@ -41,6 +41,7 @@ archives:
 dockers:
   - use: buildx
     goarch: amd64
+    goos: linux
     build_flag_templates:
       - "--pull"
       - "--platform=linux/amd64"
@@ -59,6 +60,7 @@ dockers:
 
   - use: buildx
     goarch: arm64
+    goos: darwin
     build_flag_templates:
       - "--pull"
       - "--platform=linux/arm64"

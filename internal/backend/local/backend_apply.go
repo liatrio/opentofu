@@ -283,6 +283,7 @@ func (b *Local) opApply(
 			errAttributes = append(errAttributes, attribute.String(fmt.Sprintf("%s.error", diag.Description().Address), diag.Description().Summary))
 		}
 	}
+	span.SetAttributes(attribute.String("test_adding_attributes", "true"))
 	span.RecordError(diags.Err(), trace.WithAttributes(errAttributes...))
 
 	if applyDiags.HasErrors() {

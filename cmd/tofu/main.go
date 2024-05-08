@@ -29,6 +29,7 @@ import (
 	"github.com/opentofu/opentofu/internal/logging"
 	"github.com/opentofu/opentofu/internal/terminal"
 	"github.com/opentofu/opentofu/version"
+	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/trace"
 
@@ -103,6 +104,12 @@ func realMain() int {
 			ctx, otelSpan = tracer.Start(context.Background(), fmt.Sprintf("tofu %s", displayArgs))
 		}
 		defer otelSpan.End()
+	}
+
+	// Set the team at the top level span so that we can filter the child spans based off of it
+	// and not have to include it in them as well
+	if team := os.Getenv("TEAM"); team != "" {
+		otelSpan.SetAttributes(attribute.String("team", team))
 	}
 
 	tmpLogPath := os.Getenv(envTmpLogPath)

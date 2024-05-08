@@ -314,10 +314,6 @@ func (b *Local) opApply(
 		span.SetAttributes(attribute.String("module_source", module.Source))
 	}
 
-	if team := os.Getenv("TEAM"); team != "" {
-		span.SetAttributes(attribute.String("team", team))
-	}
-
 	span.RecordError(diags.Err(), trace.WithAttributes(errAttributes...))
 
 	if applyDiags.HasErrors() {

@@ -5,9 +5,12 @@ package local
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
+	"os"
+	"strings"
 	"time"
 
 	"github.com/hashicorp/hcl/v2"
@@ -278,11 +281,43 @@ func (b *Local) opApply(
 	}
 
 	var errAttributes []attribute.KeyValue
+	var errorModule string
 	for _, diag := range diags {
 		if diag.Severity().ToHCL() == hcl.DiagError {
 			errAttributes = append(errAttributes, attribute.String(fmt.Sprintf("%s.error", diag.Description().Address), diag.Description().Summary))
+			tokens := strings.Split(diag.Description().Address, ".")
+			if len(tokens) > 3 {
+				errorModule = tokens[len(tokens)-3]
+				span.SetAttributes(attribute.String("module_with_error", errorModule))
+			}
 		}
 	}
+
+	// Extract the module ref and source from the baggage file using our common format which was generated
+	// from the module_install.go
+	type module struct {
+		Ref    string `json:"ref"`
+		Source string `json:"source"`
+	}
+
+	type baggage struct {
+		Modules map[string]module `json:"modules"`
+	}
+	bag := baggage{
+		Modules: make(map[string]module),
+	}
+
+	data, _ := os.ReadFile("/tmp/baggage")
+	json.Unmarshal(data, &bag)
+	if module, ok := bag.Modules[errorModule]; ok {
+		span.SetAttributes(attribute.String("module_ref", module.Ref))
+		span.SetAttributes(attribute.String("module_source", module.Source))
+	}
+
+	if team := os.Getenv("TEAM"); team != "" {
+		span.SetAttributes(attribute.String("team", team))
+	}
+
 	span.RecordError(diags.Err(), trace.WithAttributes(errAttributes...))
 
 	if applyDiags.HasErrors() {

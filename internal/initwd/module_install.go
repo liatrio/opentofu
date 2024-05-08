@@ -5,6 +5,7 @@ package initwd
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
@@ -175,8 +176,51 @@ func (i *ModuleInstaller) moduleInstallWalker(ctx context.Context, manifest mods
 			instPath := i.packageInstallPath(req.Path)
 
 			ctx, span := tracer.Start(ctx, fmt.Sprintf("install module: %s", key))
-			span.SetAttributes(attribute.String("module_name", key))
+
+			// Grabbing the ref and source from the full source address
+			tokens := strings.Split(req.SourceAddr.String(), "?ref=")
+			ref := tokens[1]
+			tokens = strings.Split(tokens[0], "github.com/")
+			tokens = strings.Split(tokens[1], ".git")
+			module_source := tokens[0]
+
+			span.SetAttributes(attribute.String("full_module_source", module_source))
+			span.SetAttributes(attribute.String("full_module_ref", ref))
+			span.SetAttributes(attribute.String("full_module_name", key))
+			tokens = strings.Split(key, ".")
+			name := tokens[len(tokens)-1]
+			span.SetAttributes(attribute.String("module_name", name))
 			defer span.End()
+
+			// Creating a struct to store the module ref and source and writing it to a file so we have
+			// access to it in the backend_apply.go.  Environment variables are not accessible inbetween the commands
+			// because they are seperate shell executions
+			type module struct {
+				Ref    string `json:"ref"`
+				Source string `json:"source"`
+			}
+			type baggage struct {
+				Modules map[string]module `json:"modules"`
+			}
+
+			bag := baggage{
+				Modules: make(map[string]module),
+			}
+
+			if data, _ := os.ReadFile("/tmp/baggage"); data != nil {
+				json.Unmarshal(data, &bag)
+			}
+
+			bag.Modules[name] = module{
+				Ref:    ref,
+				Source: module_source,
+			}
+
+			bytes, err := json.Marshal(bag)
+			if err != nil {
+				log.Printf("error marshalling baggage")
+			}
+			os.WriteFile("/tmp/baggage", bytes, 0644)
 
 			log.Printf("[DEBUG] Module installer: begin %s", key)
 

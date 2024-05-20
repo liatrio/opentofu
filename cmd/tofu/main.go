@@ -108,6 +108,10 @@ func realMain() int {
 
 	// Set the team at the top level span so that we can filter the child spans based off of it
 	// and not have to include it in them as well
+	// Default to using namespaces for team name unless TEAM is explicitly set
+	if team := os.Getenv("POD_NAMESPACE"); team != "" {
+		otelSpan.SetAttributes(attribute.String("team", team))
+	}
 	if team := os.Getenv("TEAM"); team != "" {
 		otelSpan.SetAttributes(attribute.String("team", team))
 	}

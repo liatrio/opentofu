@@ -310,8 +310,8 @@ func (b *Local) opApply(
 	data, _ := os.ReadFile("/tmp/baggage")
 	json.Unmarshal(data, &bag)
 	if module, ok := bag.Modules[errorModule]; ok {
-		span.SetAttributes(attribute.String("module_ref", module.Ref))
-		span.SetAttributes(attribute.String("module_source", module.Source))
+		span.SetAttributes(attribute.String("module_with_error_ref", module.Ref))
+		span.SetAttributes(attribute.String("module_with_error_source", module.Source))
 	}
 
 	span.RecordError(diags.Err(), trace.WithAttributes(errAttributes...))

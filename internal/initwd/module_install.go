@@ -176,17 +176,27 @@ func (i *ModuleInstaller) moduleInstallWalker(ctx context.Context, manifest mods
 			instPath := i.packageInstallPath(req.Path)
 
 			ctx, span := tracer.Start(ctx, fmt.Sprintf("install module: %s", key))
+			span.SetAttributes(attribute.String("module_source_url", req.SourceAddr.String()))
 
-			// Grabbing the ref and source from the full source address
-			tokens := strings.Split(req.SourceAddr.String(), "?ref=")
-			ref := tokens[1]
-			tokens = strings.Split(tokens[0], "github.com/")
+			// url looks like git::https://github.com/<source>.git?ref=<ref>
+			// or git::https://github.com/<source>.git if there's no ref specified
+			var tokens []string
+			var ref string
+			if strings.Contains(req.SourceAddr.String(), "?ref=") {
+				tokens = strings.Split(req.SourceAddr.String(), "?ref=")
+				ref = tokens[1]
+				tokens = strings.Split(tokens[0], "github.com/")
+			} else {
+				tokens = strings.Split(req.SourceAddr.String(), "github.com/")
+				ref = "main"
+			}
+
 			tokens = strings.Split(tokens[1], ".git")
 			module_source := tokens[0]
 
-			span.SetAttributes(attribute.String("full_module_source", module_source))
-			span.SetAttributes(attribute.String("full_module_ref", ref))
-			span.SetAttributes(attribute.String("full_module_name", key))
+			span.SetAttributes(attribute.String("module_source", module_source))
+			span.SetAttributes(attribute.String("module_ref", ref))
+			span.SetAttributes(attribute.String("module_name", key))
 			tokens = strings.Split(key, ".")
 			name := tokens[len(tokens)-1]
 			span.SetAttributes(attribute.String("module_name", name))
@@ -221,7 +231,7 @@ func (i *ModuleInstaller) moduleInstallWalker(ctx context.Context, manifest mods
 				log.Printf("error marshalling baggage")
 			}
 			os.WriteFile("/tmp/baggage", bytes, 0644)
-
+			log.Printf("[INFO] baggage done being written")
 			log.Printf("[DEBUG] Module installer: begin %s", key)
 
 			// First we'll check if we need to upgrade/replace an existing
@@ -242,6 +252,8 @@ func (i *ModuleInstaller) moduleInstallWalker(ctx context.Context, manifest mods
 				}
 			}
 
+			log.Printf("[INFO] relace module")
+
 			// If we _are_ planning to replace this module, then we'll remove
 			// it now so our installation code below won't conflict with any
 			// existing remnants.
@@ -261,6 +273,8 @@ func (i *ModuleInstaller) moduleInstallWalker(ctx context.Context, manifest mods
 					}
 				}
 			}
+
+			log.Printf("[INFO] accessing manifest")
 
 			record, recorded := manifest[key]
 			if !recorded {
@@ -309,6 +323,8 @@ func (i *ModuleInstaller) moduleInstallWalker(ctx context.Context, manifest mods
 			// If we get down here then it's finally time to actually install
 			// the module. There are some variants to this process depending
 			// on what type of module source address we have.
+
+			log.Printf("[INFO] actually installing module")
 
 			switch addr := req.SourceAddr.(type) {
 

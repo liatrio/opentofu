@@ -1,8 +1,8 @@
 package git
 
 import (
-	"fmt"
 	"net/url"
+	"strings"
 
 	"github.com/hashicorp/go-getter"
 	"go.opentelemetry.io/otel/attribute"
@@ -20,13 +20,19 @@ type GitGetter struct {
 // format that isn't understood, an error should be returned. Get shouldn't
 // simply nuke the directory.
 func (g *GitGetter) Get(dst string, u *url.URL) error {
-	_, repoSpec, _ := FromResourceURL(u.String())
+	// FromResourceURL doesnt assume main branch if ref is not provided, but we will and add it to the URL
+	var repoSpec *RefMetadata
+	if strings.Contains(u.String(), "?ref=") {
+		_, repoSpec, _ = FromResourceURL(u.String())
+	} else {
+		_, repoSpec, _ = FromResourceURL(u.String() + "?ref=main")
+	}
 
 	span := trace.SpanFromContext(g.gogetter.Context())
 	span.SetAttributes(attribute.String("module_commit", repoSpec.Sha))
-	span.SetAttributes(attribute.String("module_source", fmt.Sprintf("%s/%s", repoSpec.Namespace, repoSpec.Repo)))
-	span.SetAttributes(attribute.String("module_ref", repoSpec.Ref))
-	span.SetAttributes(attribute.Bool("module_is_tag_ref", repoSpec.Tag))
+	// span.SetAttributes(attribute.String("module_source", fmt.Sprintf("%s/%s", repoSpec.Namespace, repoSpec.Repo)))
+	// span.SetAttributes(attribute.String("module_ref", repoSpec.Ref))
+	// span.SetAttributes(attribute.Bool("module_is_tag_ref", repoSpec.Tag))
 	return g.gogetter.Get(dst, u)
 }
 
